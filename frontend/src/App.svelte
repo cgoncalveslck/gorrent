@@ -1,26 +1,24 @@
 <script>
-  import logo from './assets/images/logo-universal.png'
-  import {Greet} from '../wailsjs/go/main/App.js'
+  import logo from "./assets/images/logo-universal.png";
+  import { OpenFileDialog } from "../wailsjs/go/main/App.js";
 
-  let resultText = "Please enter your name below 👇"
-  let name
+  let resultText = "Choose file below 👇";
+  let name;
 
-  function greet() {
-    Greet(name).then(result => resultText = result)
+  function openFileDialog() {
+    OpenFileDialog();
   }
 </script>
 
 <main>
-  <img alt="Wails logo" id="logo" src="{logo}">
+  <img alt="Wails logo" id="logo" src={logo} />
   <div class="result" id="result">{resultText}</div>
   <div class="input-box" id="input">
-    <input autocomplete="off" bind:value={name} class="input" id="name" type="text"/>
-    <button class="btn" on:click={greet}>Greet</button>
+    <button class="btn" on:click={openFileDialog}>Select file</button>
   </div>
 </main>
 
 <style>
-
   #logo {
     display: block;
     width: 50%;
@@ -40,7 +38,6 @@
   }
 
   .input-box .btn {
-    width: 60px;
     height: 30px;
     line-height: 30px;
     border-radius: 3px;
@@ -54,26 +51,4 @@
     background-image: linear-gradient(to top, #cfd9df 0%, #e2ebf0 100%);
     color: #333333;
   }
-
-  .input-box .input {
-    border: none;
-    border-radius: 3px;
-    outline: none;
-    height: 30px;
-    line-height: 30px;
-    padding: 0 10px;
-    background-color: rgba(240, 240, 240, 1);
-    -webkit-font-smoothing: antialiased;
-  }
-
-  .input-box .input:hover {
-    border: none;
-    background-color: rgba(255, 255, 255, 1);
-  }
-
-  .input-box .input:focus {
-    border: none;
-    background-color: rgba(255, 255, 255, 1);
-  }
-
 </style>
