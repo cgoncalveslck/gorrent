@@ -1,10 +1,13 @@
 module gorrent
 
-go 1.21
+go 1.21.4
 
 toolchain go1.21.6
 
-require github.com/wailsapp/wails/v2 v2.9.1
+require (
+	github.com/jackpal/bencode-go v1.0.2
+	github.com/wailsapp/wails/v2 v2.9.1
+)
 
 require (
 	github.com/bep/debounce v1.2.1 // indirect

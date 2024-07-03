@@ -9,5 +9,16 @@
   "author": {
     "name": "cgoncalveslck",
     "email": "claudiogoncalveslck@gmail.com"
+  },
+  "info": {
+    "fileAssociations": [
+      {
+        "ext": "torrent",
+        "name": "Torrent File",
+        "description": "Torrent File",
+        "iconName": "appicon",
+        "role": "Viewer"
+      }
+    ]
   }
 }
