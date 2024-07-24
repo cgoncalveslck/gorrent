@@ -2,6 +2,7 @@ package main
 
 import (
 	"embed"
+	"gorrent/backend"
 
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
@@ -12,10 +13,10 @@ import (
 var assets embed.FS
 
 func main() {
-	// Create an instance of the app structure
-	app := NewApp()
+	t := backend.Torrent{}
+	st := backend.InitState(t)
 
-	// Create application with options
+	app := NewApp()
 	err := wails.Run(&options.App{
 		Title:  "gorrent",
 		Width:  1024,
@@ -23,10 +24,11 @@ func main() {
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},
-		BackgroundColour: &options.RGBA{R: 27, G: 38, B: 54, A: 1},
+		BackgroundColour: &options.RGBA{R: 27, G: 38, B: 54, A: 255},
 		OnStartup:        app.startup,
 		Bind: []interface{}{
 			app,
+			&st,
 		},
 	})
 
