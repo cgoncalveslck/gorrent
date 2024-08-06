@@ -17,9 +17,9 @@ import (
 	"github.com/jackpal/bencode-go"
 )
 
-type bencodeTorrent struct {
-	Announce string      `bencode:"announce"`
-	Info     bencodeInfo `bencode:"info"`
+type BencodeTorrent struct {
+	Announce string      `bencode:"announce" json:"announce"`
+	Info     bencodeInfo `bencode:"info" json:"info"`
 }
 type bencodeInfo struct {
 	Pieces      string `bencode:"pieces" json:"-"`
@@ -28,11 +28,24 @@ type bencodeInfo struct {
 	Name        string `bencode:"name" json:"name"`
 }
 
+type Torrent struct {
+	bencodeTorrent *BencodeTorrent
+	havePieces     Bitfield
+}
+
 func (i *bencodeInfo) hash() [20]byte {
 	var buf bytes.Buffer
-	bencode.Marshal(&buf, *i)
+	err := bencode.Marshal(&buf, *i)
+	if err != nil {
+		panic(err)
+	}
 	h := sha1.Sum(buf.Bytes())
 	return h
+}
+
+func (t *BencodeTorrent) NumPieces() int {
+	pieceHash := []byte(t.Info.Pieces)
+	return len(pieceHash) / 20 // Each piece hash is 20 bytes
 }
 
 type TrackerResponse struct {
@@ -46,7 +59,7 @@ type TrackerResponse struct {
 	Peers          string `bencode:"peers"`
 }
 
-func HandleFile(ctx context.Context, path string) (*bencodeTorrent, error) {
+func HandleFile(ctx context.Context, path string) (*BencodeTorrent, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
@@ -62,12 +75,8 @@ func HandleFile(ctx context.Context, path string) (*bencodeTorrent, error) {
 	return bcode, nil
 }
 
-func readTorrentFile(ctx context.Context, bcode *bencodeTorrent) {
+func readTorrentFile(ctx context.Context, bcode *BencodeTorrent) {
 	str := "-TX0001-7478636c636b"
-	if len(str) != 20 {
-		fmt.Println("Error: String length is not 20")
-		return
-	}
 
 	var peerID [20]byte
 	copy(peerID[:], str)
@@ -99,8 +108,8 @@ func readTorrentFile(ctx context.Context, bcode *bencodeTorrent) {
 
 }
 
-func getBencode(r io.Reader) (*bencodeTorrent, error) {
-	bto := bencodeTorrent{}
+func getBencode(r io.Reader) (*BencodeTorrent, error) {
+	bto := BencodeTorrent{}
 	err := bencode.Unmarshal(r, &bto)
 	if err != nil {
 		return nil, err
@@ -117,7 +126,7 @@ func getTracker(r io.Reader) (*TrackerResponse, error) {
 	return &bto, nil
 }
 
-func getTrackerURL(b *bencodeTorrent, peerID string) (string, error) {
+func getTrackerURL(b *BencodeTorrent, peerID string) (string, error) {
 	base, err := url.Parse(b.Announce)
 	if err != nil {
 		return "", err
@@ -126,7 +135,7 @@ func getTrackerURL(b *bencodeTorrent, peerID string) (string, error) {
 	infoHash := b.Info.hash()
 	params := url.Values{
 		"info_hash":  []string{string(infoHash[:])},
-		"peer_id":    []string{string(peerID[:])},
+		"peer_id":    []string{peerID[:]},
 		"port":       []string{base.Port()},
 		"uploaded":   []string{"0"},
 		"downloaded": []string{"0"},

@@ -40,8 +40,11 @@ type Message struct {
 }
 
 type Peer struct {
-	IP   string `bencode:"ip" json:"ip"`
-	Port string `bencode:"port" json:"port"`
+	Choked     bool     `json:"choked"`
+	Interested bool     `json:"interested"`
+	Bitfield   Bitfield `json:"bitfield"`
+	IP         string   `bencode:"ip" json:"ip"`
+	Port       string   `bencode:"port" json:"port"`
 }
 
 type Handshake struct {
@@ -99,6 +102,27 @@ func parseHandshake(buf []byte) (*Handshake, error) {
 	return &hs, nil
 }
 
+// A Bitfield represents the pieces that a peer has
+type Bitfield []byte
+
+func NewBitfield(b []byte) Bitfield {
+	return Bitfield(b)
+}
+
+// HasPiece tells if a bitfield has a particular index set
+func (bf Bitfield) HasPiece(index int) bool {
+	byteIndex := index / 8
+	offset := index % 8
+	return bf[byteIndex]>>(7-offset)&1 != 0
+}
+
+// SetPiece sets a bit in the bitfield
+func (bf Bitfield) SetPiece(index int) {
+	byteIndex := index / 8
+	offset := index % 8
+	bf[byteIndex] |= 1 << (7 - offset)
+}
+
 func ConnectToPeer(ctx context.Context, peer *Peer, infoHash, peerID [20]byte) {
 	var conn net.Conn
 	var err error
@@ -138,7 +162,6 @@ func ConnectToPeer(ctx context.Context, peer *Peer, infoHash, peerID [20]byte) {
 	}
 
 	runtime.EventsEmit(ctx, "peer-connect", peer)
-	fmt.Printf("Successfully connected to peer: %s\n", peer.String())
 
 	interestedMsg := Message{ID: MsgInterested}
 	_, err = conn.Write(interestedMsg.Serialize())
@@ -151,11 +174,10 @@ func ConnectToPeer(ctx context.Context, peer *Peer, infoHash, peerID [20]byte) {
 	if err != nil {
 		panic(err)
 	}
-
 	for {
 		msg, err := Read(conn)
-
 		if err != nil {
+			runtime.EventsEmit(ctx, "peer-disconnect", peer)
 			if err == io.EOF {
 				fmt.Println("Connection closed by peer:", peer.String())
 			} else {
@@ -169,18 +191,74 @@ func ConnectToPeer(ctx context.Context, peer *Peer, infoHash, peerID [20]byte) {
 			continue
 		}
 
-		// Process the message here
-		fmt.Println("Received message: ID=", msg.ID, " from: ", peer.String())
-
-		if msg.ID == MsgBitfield {
-
-		}
+		handleMessage(conn, msg, peer)
 	}
 }
 
-func (c *Connection) Read() (*Message, error) {
-	msg, err := Read(c.Conn)
-	return msg, err
+func handleMessage(conn net.Conn, msg *Message, peer *Peer) {
+	client := GetClient()
+	if client == nil {
+		panic("client not found")
+	}
+	switch msg.ID {
+	case MsgChoke:
+		peer.Choked = true
+		fmt.Println("Choked by:", peer.String())
+	case MsgUnchoke:
+		peer.Choked = false
+		fmt.Println("Unchoked by:", peer.String())
+		// You might want to start requesting pieces here
+	case MsgInterested:
+		peer.Interested = true
+		fmt.Println("Peer interested:", peer.String())
+		// If we're not choking the peer, we might want to unchoke them
+	case MsgNotInterested:
+		peer.Interested = false
+		fmt.Println("Peer not interested:", peer.String())
+	case MsgHave:
+		pieceIndex := binary.BigEndian.Uint32(msg.Payload)
+		peer.Bitfield.SetPiece(int(pieceIndex))
+		fmt.Printf("Peer %s has piece %d\n", peer.String(), pieceIndex)
+		// You might want to express interest if you need this piece
+	case MsgBitfield:
+		bf := NewBitfield(msg.Payload)
+		peer.Bitfield = bf
+
+		for i := range bf {
+			if bf[i] == 1 {
+				client.Torrent.havePieces[peer.Identifier()] |= (1 << uint(i))
+			}
+		}
+
+		fmt.Println("Received bitfield from:", peer.String())
+		for i := 0; i < client.Torrent.bencodeTorrent.NumPieces(); i++ {
+			if peer.Bitfield.HasPiece(i) && !client.Bitfield.HasPiece(i) {
+				// This peer has a piece we need
+				fmt.Println("Peer has piece", i, "that we don't have")
+				fmt.Println("Sending interested message to:", peer.String())
+				sendInterestedMessage(conn)
+				break
+			}
+		}
+	case MsgRequest:
+		index := binary.BigEndian.Uint32(msg.Payload[0:4])
+		begin := binary.BigEndian.Uint32(msg.Payload[4:8])
+		length := binary.BigEndian.Uint32(msg.Payload[8:12])
+		fmt.Printf("Peer %s requested piece %d, begin %d, length %d\n", peer.String(), index, begin, length)
+		// Handle the request: check if you have the piece and send it if you do
+	case MsgPiece:
+		index := binary.BigEndian.Uint32(msg.Payload[0:4])
+		begin := binary.BigEndian.Uint32(msg.Payload[4:8])
+		data := msg.Payload[8:]
+		fmt.Printf("Received piece %d, begin %d, length %d from %s\n", index, begin, len(data), peer.String())
+		// Save this piece data and update your bitfield
+	case MsgCancel:
+		index := binary.BigEndian.Uint32(msg.Payload[0:4])
+		begin := binary.BigEndian.Uint32(msg.Payload[4:8])
+		length := binary.BigEndian.Uint32(msg.Payload[8:12])
+		fmt.Printf("Peer %s cancelled request for piece %d, begin %d, length %d\n", peer.String(), index, begin, length)
+		// Remove this piece from your queue of pieces to send, if applicable
+	}
 }
 
 func (c *Connection) SendRequest(index, begin, length int) error {
@@ -234,4 +312,16 @@ func (h *Handshake) Serialize() []byte {
 
 func (p *Peer) String() string {
 	return strings.Join([]string{p.IP, p.Port}, ":")
+}
+
+func (p *Peer) Identifier() int {
+	return int(binary.BigEndian.Uint32(net.ParseIP(p.IP).To4()))
+}
+
+func sendInterestedMessage(conn net.Conn) {
+	msg := Message{ID: MsgInterested}
+	_, err := conn.Write(msg.Serialize())
+	if err != nil {
+		panic(err)
+	}
 }

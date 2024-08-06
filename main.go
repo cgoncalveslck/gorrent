@@ -4,6 +4,8 @@ import (
 	"embed"
 	"gorrent/backend"
 
+	"github.com/wailsapp/wails/v2/pkg/options/mac"
+
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
@@ -13,9 +15,7 @@ import (
 var assets embed.FS
 
 func main() {
-	t := backend.Torrent{}
-	st := backend.InitState(t)
-
+	backend.InitState()
 	app := NewApp()
 	err := wails.Run(&options.App{
 		Title:  "gorrent",
@@ -28,11 +28,20 @@ func main() {
 		OnStartup:        app.startup,
 		Bind: []interface{}{
 			app,
-			&st,
+		},
+		WindowStartState: options.Maximised,
+		Mac: &mac.Options{
+			Appearance:           mac.NSAppearanceNameDarkAqua,
+			WebviewIsTransparent: true,
+			WindowIsTranslucent:  true,
+		},
+		Debug: options.Debug{
+			OpenInspectorOnStartup: true,
 		},
 	})
 
 	if err != nil {
 		println("Error:", err.Error())
 	}
+
 }

@@ -2,11 +2,17 @@
   import logo from "../assets/images/logo-universal.png";
   import { OpenFileDialog } from "../../wailsjs/go/main/App.js";
   import { push } from "svelte-spa-router";
+  import { state } from "../lib/state";
 
   let resultText = "Choose file below 👇";
 
   function openFileDialog() {
-    OpenFileDialog().then(() => {
+    OpenFileDialog().then((res) => {
+      state.set({
+        file: {
+          name: res.info.name,
+        },
+      });
       push("/files");
     });
   }
@@ -23,7 +29,6 @@
 <style>
   #logo {
     display: block;
-    width: 50%;
     height: 50%;
     margin: auto;
     padding: 10% 0 0;
@@ -31,6 +36,10 @@
     background-repeat: no-repeat;
     background-size: 100% 100%;
     background-origin: content-box;
+  }
+
+  main {
+    height: 100vh;
   }
 
   .result {

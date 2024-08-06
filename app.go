@@ -10,8 +10,9 @@ import (
 
 // App struct
 type App struct {
-	ctx   context.Context
-	State *backend.State
+	ctx    context.Context
+	State  *backend.State
+	Client *backend.Client
 }
 
 // NewApp creates a new App application struct
@@ -34,7 +35,7 @@ func (a *App) GetStateJSON() string {
 	return string(jason)
 }
 
-func (a *App) OpenFileDialog() {
+func (a *App) OpenFileDialog() *backend.BencodeTorrent {
 	options := runtime.OpenDialogOptions{
 		Title: "Open File",
 		Filters: []runtime.FileFilter{
@@ -50,20 +51,11 @@ func (a *App) OpenFileDialog() {
 		panic(err)
 	}
 
-	_, err = backend.HandleFile(a.ctx, path)
+	bencode, err := backend.HandleFile(a.ctx, path)
 	if err != nil {
 		panic(err)
 	}
 
-	torrents := make([]backend.Torrent, 0)
-	torrents = append(torrents, backend.Torrent{
-		Name: "test",
-	})
-
-	s := &backend.State{
-		Torrents: torrents,
-	}
-
-	a.State = s
-	a.State.Write()
+	backend.NewClient(bencode)
+	return bencode
 }

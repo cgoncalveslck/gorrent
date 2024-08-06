@@ -50,19 +50,8 @@ const (
 	Stopped
 )
 
-type Torrent struct {
-	Name  string `json:"name"`
-	Files []struct {
-		Name string `json:"name"`
-		Size string `json:"size"`
-	}
-	Progress float32       `json:"progress"` // 0.00 - 100.00
-	Status   TorrentStatus `json:"status"`
-}
-
 type State struct {
-	Torrents []Torrent `json:"torrents"`
-	Hello    string    `json:"hello"`
+	Hello string `json:"hello"`
 }
 
 const dirFileMode = os.ModeDir | (osUserRwx | osAllR)
@@ -119,7 +108,7 @@ func (s *State) Write() error {
 	return nil
 }
 
-func InitState(torrent Torrent) State {
+func InitState() State {
 	dir, err := InitDir()
 	if err != nil {
 		panic(err)
