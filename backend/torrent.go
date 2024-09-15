@@ -20,6 +20,8 @@ import (
 type BencodeTorrent struct {
 	Announce string      `bencode:"announce" json:"announce"`
 	Info     bencodeInfo `bencode:"info" json:"info"`
+	havePieces     Bitfield
+
 }
 
 func (bT *BencodeTorrent) VerifyPiece(index uint32, data []byte) bool {
@@ -31,18 +33,6 @@ func (bT *BencodeTorrent) VerifyPiece(index uint32, data []byte) bool {
 	start := index * 20
 	end := start + 20
 	return bytes.Equal(hash, []byte(bT.Info.Pieces[start:end]))
-}
-
-type bencodeInfo struct {
-	Pieces      string `bencode:"pieces" json:"-"`
-	PieceLength int    `bencode:"piece length" json:"-"`
-	Length      int    `bencode:"length" json:"-"`
-	Name        string `bencode:"name" json:"name"`
-}
-
-type Torrent struct {
-	bencodeTorrent *BencodeTorrent
-	havePieces     Bitfield
 }
 
 func (bI *bencodeInfo) hash() [20]byte {
@@ -60,6 +50,31 @@ func (bT *BencodeTorrent) NumPieces() int {
 	return len(pieceHash) / 20 // Each piece hash is 20 bytes
 }
 
+type bencodeInfo struct {
+	Pieces      string     `bencode:"pieces" json:"-"`
+	PieceLength int        `bencode:"piece length" json:"-"`
+	Length      int        `bencode:"length" json:"-"`
+	Name        string     `bencode:"name" json:"name"`
+	Files       []fileInfo `bencode:"files" json:"-"`
+}
+
+type fileInfo struct {
+	Length int      `bencode:"length"`
+	Path   []string `bencode:"path"`
+	MD5sum string   `bencode:"md5sum,omitempty"`
+}
+
+type Torrent struct {
+	ID             int             `json:"id"`
+	TorrentName    string          `json:"torrentName"`
+	FileNames      []string        `json:"fileNames"`
+	Progress       float64         `json:"progress"`
+	IsMultiFile    bool            `json:"isMultiFile"`
+	TotalLength    int64           `json:"totalLength"`
+	Status         string          `json:"status"`
+	bencodeTorrent *BencodeTorrent `json:"-"`
+}
+
 type TrackerResponse struct {
 	FailureReason  string `bencode:"failure reason,omitempty"`
 	WarningMessage string `bencode:"warning message,omitempty"`
@@ -71,7 +86,31 @@ type TrackerResponse struct {
 	Peers          string `bencode:"peers"`
 }
 
-func HandleFile(ctx context.Context, path string) (*BencodeTorrent, error) {
+func NewTorrent(bt *BencodeTorrent) *Torrent {
+	t := &Torrent{}
+	t.initFromBencode(bt)
+	return t
+}
+
+// Add this method to the Torrent struct
+func (t *Torrent) initFromBencode(bt *BencodeTorrent) {
+	t.bencodeTorrent = bt
+	t.TorrentName = bt.Info.Name
+	t.IsMultiFile = len(bt.Info.Files) > 0
+
+	if t.IsMultiFile {
+		t.TotalLength = 0
+		for _, file := range bt.Info.Files {
+			t.FileNames = append(t.FileNames, file.Path[len(file.Path)-1])
+			t.TotalLength += int64(file.Length)
+		}
+	} else {
+		t.FileNames = []string{bt.Info.Name}
+		t.TotalLength = int64(bt.Info.Length)
+	}
+}
+
+func HandleFile(ctx context.Context, path string) (*Torrent, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
@@ -83,8 +122,10 @@ func HandleFile(ctx context.Context, path string) (*BencodeTorrent, error) {
 		return nil, err
 	}
 
-	readTorrentFile(ctx, bcode)
-	return bcode, nil
+	// readTorrentFile(ctx, bcode)
+	t := NewTorrent(bcode)
+	AddTorrent(t)
+	return t, nil
 }
 
 func readTorrentFile(ctx context.Context, bcode *BencodeTorrent) {

@@ -6,7 +6,9 @@ toolchain go1.21.6
 
 require (
 	github.com/jackpal/bencode-go v1.0.2
+	github.com/mattn/go-sqlite3 v1.14.23
 	github.com/wailsapp/wails/v2 v2.9.1
+	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
 )
 
 require (
@@ -33,7 +35,6 @@ require (
 	github.com/wailsapp/go-webview2 v1.0.10 // indirect
 	github.com/wailsapp/mimetype v1.4.1 // indirect
 	golang.org/x/crypto v0.23.0 // indirect
-	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1 // indirect
 	golang.org/x/net v0.25.0 // indirect
 	golang.org/x/sys v0.20.0 // indirect
 	golang.org/x/text v0.15.0 // indirect

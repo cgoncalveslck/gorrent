@@ -7,4 +7,6 @@ function createState(value) {
     return { subscribe, set, update }
 }
 
-export const state = createState(null)
+export const state = createState({
+  torrents: []
+})

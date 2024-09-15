@@ -2,16 +2,19 @@ package main
 
 import (
 	"context"
-	"encoding/json"
+	"fmt"
 	"gorrent/backend"
+	"os"
+	"path/filepath"
+	"time"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
+	"golang.org/x/exp/rand"
 )
 
 // App struct
 type App struct {
 	ctx    context.Context
-	State  *backend.State
 	Client *backend.Client
 }
 
@@ -24,18 +27,10 @@ func NewApp() *App {
 // ,so we can call the runtime methods
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
+	backend.InitDB()
 }
 
-func (a *App) GetStateJSON() string {
-	jason, err := json.Marshal(a.State)
-	if err != nil {
-		panic(err)
-	}
-
-	return string(jason)
-}
-
-func (a *App) OpenFileDialog() *backend.BencodeTorrent {
+func (a *App) OpenFileDialog() *backend.Torrent {
 	options := runtime.OpenDialogOptions{
 		Title: "Open File",
 		Filters: []runtime.FileFilter{
@@ -51,11 +46,34 @@ func (a *App) OpenFileDialog() *backend.BencodeTorrent {
 		panic(err)
 	}
 
-	bencode, err := backend.HandleFile(a.ctx, path)
+	torrent, err := backend.HandleFile(a.ctx, path)
 	if err != nil {
 		panic(err)
 	}
 
-	backend.NewClient(bencode)
-	return bencode
+	backend.NewClient(torrent)
+	return torrent
+}
+
+func (a *App) GetDevTorrent() (*backend.Torrent, error) {
+	files, err := os.ReadDir("_dev")
+	if err != nil {
+		return nil, err
+	}
+
+	var torrentFiles []string
+	for _, file := range files {
+		if filepath.Ext(file.Name()) == ".torrent" {
+			torrentFiles = append(torrentFiles, filepath.Join("_dev", file.Name()))
+		}
+	}
+
+	if len(torrentFiles) == 0 {
+		return nil, fmt.Errorf("no torrent files found in _dev directory")
+	}
+
+	rand.Seed(uint64(time.Now().UnixNano()))
+	selectedFile := torrentFiles[rand.Intn(len(torrentFiles))]
+
+	return backend.HandleFile(context.Background(), selectedFile)
 }

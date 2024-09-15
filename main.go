@@ -2,7 +2,6 @@ package main
 
 import (
 	"embed"
-	"gorrent/backend"
 
 	"github.com/wailsapp/wails/v2/pkg/options/mac"
 
@@ -15,7 +14,6 @@ import (
 var assets embed.FS
 
 func main() {
-	backend.InitState()
 	app := NewApp()
 	err := wails.Run(&options.App{
 		Title:  "gorrent",

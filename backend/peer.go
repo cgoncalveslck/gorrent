@@ -294,7 +294,7 @@ func handleMessage(conn net.Conn, msg *Message, peer *Peer) {
 
 		for i := range bf {
 			if bf[i] == 1 {
-				client.Torrent.havePieces[peer.Identifier()] |= 1 << uint(i)
+				client.Torrent.bencodeTorrent.havePieces[peer.Identifier()] |= 1 << uint(i)
 			}
 		}
 

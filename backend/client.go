@@ -17,16 +17,13 @@ type Client struct {
 	mutex    sync.Mutex
 }
 
-func NewClient(torrent *BencodeTorrent) *Client {
+func NewClient(torrent *Torrent) *Client {
 	clientMutex.Lock()
 	defer clientMutex.Unlock()
 
 	client = &Client{
-		Torrent: &Torrent{
-			bencodeTorrent: torrent,
-			havePieces:     NewBitfield(nil),
-		},
-		Bitfield: NewBitfield([]byte(torrent.Info.Pieces)),
+		Torrent: torrent,
+		Bitfield: NewBitfield([]byte(torrent.bencodeTorrent.Info.Pieces)),
 	}
 	return client
 }
