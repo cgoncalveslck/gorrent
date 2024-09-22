@@ -18,10 +18,9 @@ import (
 )
 
 type BencodeTorrent struct {
-	Announce string      `bencode:"announce" json:"announce"`
-	Info     bencodeInfo `bencode:"info" json:"info"`
-	havePieces     Bitfield
-
+	Announce   string      `bencode:"announce" json:"announce"`
+	Info       bencodeInfo `bencode:"info" json:"info"`
+	havePieces Bitfield
 }
 
 func (bT *BencodeTorrent) VerifyPiece(index uint32, data []byte) bool {
@@ -124,7 +123,7 @@ func HandleFile(ctx context.Context, path string) (*Torrent, error) {
 
 	// readTorrentFile(ctx, bcode)
 	t := NewTorrent(bcode)
-	AddTorrent(t)
+	Insert(t)
 	return t, nil
 }
 

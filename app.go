@@ -77,3 +77,16 @@ func (a *App) GetDevTorrent() (*backend.Torrent, error) {
 
 	return backend.HandleFile(context.Background(), selectedFile)
 }
+
+func (a *App) AddTorrent(t *backend.Torrent) {
+	backend.Insert(t)
+}
+
+// ui is not updating on delete
+func (a *App) RemoveTorrent(id int) {
+	backend.Remove(id)
+}
+
+func (a *App) GetTorrents() ([]backend.Torrent, error) {
+	return backend.GetTorrents()
+}

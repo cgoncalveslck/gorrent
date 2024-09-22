@@ -1,8 +1,12 @@
 <script>
-  import { writable, derived } from 'svelte/store';
-  import { state } from "../lib/state";
-  import { OpenFileDialog, GetDevTorrent } from "../../wailsjs/go/main/App.js";
-  import { Search, Download, Pause, Play, Trash2, Info, X } from 'lucide-svelte';
+  import { writable, derived } from "svelte/store";
+  import {
+    OpenFileDialog,
+    GetDevTorrent,
+    GetTorrents,
+    RemoveTorrent,
+  } from "../../wailsjs/go/main/App.js";
+  import { Search, Plus, Pause, Play, Trash2, Info, X } from "lucide-svelte";
 
   let torrentsStore = writable([]);
   let searchQuery = writable("");
@@ -10,18 +14,13 @@
   let sortOrder = writable("asc");
   let selectedTorrent = writable(null);
 
-  state.subscribe(x => {
-    console.log("State updated:", x);
-    torrentsStore.set(x.torrents || []);
-  });
+  GetTorrents().then((res) => torrentsStore.set(res));
 
   const filteredAndSortedTorrents = derived(
     [torrentsStore, searchQuery, sortBy, sortOrder],
     ([$torrents, $searchQuery, $sortBy, $sortOrder]) => {
-      console.log("Deriving filteredAndSortedTorrents", { $torrents, $searchQuery, $sortBy, $sortOrder });
-      
-      let filtered = $torrents.filter(torrent => 
-        torrent.torrentName.toLowerCase().includes($searchQuery.toLowerCase())
+      let filtered = $torrents.filter((torrent) =>
+        torrent.torrentName.toLowerCase().includes($searchQuery.toLowerCase()),
       );
 
       filtered.sort((a, b) => {
@@ -43,18 +42,18 @@
       });
 
       return filtered;
-    }
+    },
   );
 
   function openFileDialog() {
     OpenFileDialog().then((res) => {
-      torrentsStore.update(currentTorrents => [
+      torrentsStore.update((currentTorrents) => [
         ...currentTorrents,
         {
           ...res,
           id: generateUniqueId(),
           isPaused: false,
-        }
+        },
       ]);
     });
   }
@@ -78,7 +77,7 @@
   }
 
   function formatSize(bytes) {
-    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const units = ["B", "KB", "MB", "GB", "TB"];
     let size = bytes;
     let unitIndex = 0;
     while (size >= 1024 && unitIndex < units.length - 1) {
@@ -89,28 +88,22 @@
   }
 
   function togglePause(torrent) {
-    torrentsStore.update(currentTorrents => 
-      currentTorrents.map(t => 
-        t.id === torrent.id ? { ...t, isPaused: !t.isPaused } : t
-      )
-    );
-  }
-
-  function removeTorrent(torrentId) {
-    torrentsStore.update(currentTorrents => 
-      currentTorrents.filter(t => t.id !== torrentId)
+    torrentsStore.update((currentTorrents) =>
+      currentTorrents.map((t) =>
+        t.id === torrent.id ? { ...t, isPaused: !t.isPaused } : t,
+      ),
     );
   }
 
   function formatSpeed(bytesPerSecond) {
-    if (bytesPerSecond === 0) return '0 B/s';
-    const units = ['B/s', 'KB/s', 'MB/s', 'GB/s'];
+    if (bytesPerSecond === 0) return "0 B/s";
+    const units = ["B/s", "KB/s", "MB/s", "GB/s"];
     const i = Math.floor(Math.log(bytesPerSecond) / Math.log(1024));
     return `${(bytesPerSecond / Math.pow(1024, i)).toFixed(2)} ${units[i]}`;
   }
 
   function formatETA(seconds) {
-    if (seconds === Infinity || seconds === 0) return 'Unknown';
+    if (seconds === Infinity || seconds === 0) return "Unknown";
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
     return `${hours}h ${minutes}m`;
@@ -118,37 +111,37 @@
 
   function loadDevTorrent() {
     GetDevTorrent().then((res) => {
-      torrentsStore.update(currentTorrents => [
+      torrentsStore.update((currentTorrents) => [
         ...currentTorrents,
         {
           ...res,
           id: generateUniqueId(),
           isPaused: false,
-        }
+        },
       ]);
     });
   }
 </script>
 
 <main>
-  <h1>Torrent Client</h1>
-  
   <div class="controls">
     <div class="search-bar">
       <Search size={20} />
-      <input type="text" bind:value={$searchQuery} placeholder="Search torrents...">
+      <input type="text" bind:value={$searchQuery} placeholder="Search..." />
     </div>
     <select bind:value={$sortBy}>
       <option value="name">Name</option>
       <option value="size">Size</option>
       <option value="progress">Progress</option>
     </select>
-    <button class="sort-order" on:click={() => $sortOrder = $sortOrder === "asc" ? "desc" : "asc"}>
+    <button
+      class="sort-order"
+      on:click={() => ($sortOrder = $sortOrder === "asc" ? "desc" : "asc")}
+    >
       {$sortOrder === "asc" ? "↑" : "↓"}
     </button>
     <button class="btn primary" on:click={addNewTorrent}>
-      <Download size={20} />
-      Add New Torrent
+      <Plus size={20} />
     </button>
   </div>
 
@@ -158,7 +151,9 @@
         <div class="torrent-info">
           <h3 class="torrent-name">{torrent.torrentName}</h3>
           <p class="torrent-details">
-            {torrent.isMultiFile ? `${torrent.fileNames.length} files` : '1 file'} | 
+            {torrent.isMultiFile
+              ? `${torrent.fileNames.length} files`
+              : "1 file"} |
             {formatSize(torrent.totalLength)}
           </p>
         </div>
@@ -179,7 +174,10 @@
           <button class="btn icon" on:click={() => openTorrentDetails(torrent)}>
             <Info size={20} />
           </button>
-          <button class="btn icon danger" on:click={() => removeTorrent(torrent.id)}>
+          <button
+            class="btn icon danger"
+            on:click={() => RemoveTorrent(torrent.id)}
+          >
             <Trash2 size={20} />
           </button>
         </div>
@@ -188,71 +186,75 @@
   </div>
 
   {#if $selectedTorrent}
-  <div 
-    class="modal-overlay" 
-    on:click={closeTorrentDetails}
-    on:keydown={(e) => e.key === 'Escape' && closeTorrentDetails()}
-    tabindex="0"
-    role="button"
-    aria-label="Close modal"
-  >
-    <div class="modal-content">
-      <button 
-        class="close-btn" 
-        on:click={closeTorrentDetails}
-        on:keydown={(e) => e.key === 'Enter' && closeTorrentDetails()}
-      >
-        <X size={24} />
-      </button>
-      <h2>{$selectedTorrent.torrentName}</h2>
-      <div class="torrent-details-grid">
-        <div class="detail-item">
-          <strong>Size:</strong> {formatSize($selectedTorrent.totalLength)}
+    <div
+      class="modal-overlay"
+      on:click={closeTorrentDetails}
+      on:keydown={(e) => e.key === "Escape" && closeTorrentDetails()}
+      tabindex="0"
+      role="button"
+      aria-label="Close modal"
+    >
+      <div class="modal-content">
+        <!-- this doesn't work -->
+        <button
+          class="close-btn"
+          on:click={closeTorrentDetails}
+          on:keydown={(e) => e.key === "Enter" && closeTorrentDetails()}
+        >
+          <X size={24} />
+        </button>
+        <h2>{$selectedTorrent.torrentName}</h2>
+        <div class="torrent-details-grid">
+          <div class="detail-item">
+            <strong>Size:</strong>
+            {formatSize($selectedTorrent.totalLength)}
+          </div>
+          <div class="detail-item">
+            <strong>Progress:</strong>
+            {$selectedTorrent.progress.toFixed(1)}%
+          </div>
+          <div class="detail-item">
+            <strong>Status:</strong>
+            {$selectedTorrent.isPaused ? "Paused" : "Downloading"}
+          </div>
+          <div class="detail-item">
+            <strong>Download Speed:</strong>
+            {formatSpeed($selectedTorrent.downloadSpeed)}
+          </div>
+          <div class="detail-item">
+            <strong>Upload Speed:</strong>
+            {formatSpeed($selectedTorrent.uploadSpeed)}
+          </div>
+          <div class="detail-item">
+            <strong>ETA:</strong>
+            {formatETA($selectedTorrent.eta)}
+          </div>
+          <div class="detail-item">
+            <strong>Peers:</strong>
+            {$selectedTorrent.peers}
+          </div>
+          <div class="detail-item">
+            <strong>Seeds:</strong>
+            {$selectedTorrent.seeds}
+          </div>
         </div>
-        <div class="detail-item">
-          <strong>Progress:</strong> {$selectedTorrent.progress.toFixed(1)}%
-        </div>
-        <div class="detail-item">
-          <strong>Status:</strong> {$selectedTorrent.isPaused ? 'Paused' : 'Downloading'}
-        </div>
-        <div class="detail-item">
-          <strong>Download Speed:</strong> {formatSpeed($selectedTorrent.downloadSpeed)}
-        </div>
-        <div class="detail-item">
-          <strong>Upload Speed:</strong> {formatSpeed($selectedTorrent.uploadSpeed)}
-        </div>
-        <div class="detail-item">
-          <strong>ETA:</strong> {formatETA($selectedTorrent.eta)}
-        </div>
-        <div class="detail-item">
-          <strong>Peers:</strong> {$selectedTorrent.peers}
-        </div>
-        <div class="detail-item">
-          <strong>Seeds:</strong> {$selectedTorrent.seeds}
-        </div>
-      </div>
-      {#if $selectedTorrent.isMultiFile}
-        <div class="file-list">
-          <h3>Files:</h3>
-          <ul>
-            {#each $selectedTorrent.fileNames as fileName, index}
-              <li>
-                {fileName}
-                <span class="file-progress">
-                  ({($selectedTorrent.fileProgress[index] * 100).toFixed(1)}%)
-                </span>
-              </li>
-            {/each}
-          </ul>
-        </div>
-      {/if}
-      <div class="torrent-graph">
-        <h3>Download History</h3>
-        <!-- Add a placeholder for a graph showing download speed over time -->
-        <div class="graph-placeholder">Graph placeholder</div>
+        {#if $selectedTorrent.isMultiFile}
+          <div class="file-list">
+            <h3>Files:</h3>
+            <ul>
+              {#each $selectedTorrent.fileNames as fileName, index}
+                <li>
+                  {fileName}
+                  <span class="file-progress">
+                    ({($selectedTorrent.fileProgress[index] * 100).toFixed(1)}%)
+                  </span>
+                </li>
+              {/each}
+            </ul>
+          </div>
+        {/if}
       </div>
     </div>
-  </div>
   {/if}
 
   <!-- Hidden button for loading a dev torrent -->
@@ -265,8 +267,8 @@
   :root {
     --background-color: rgba(18, 18, 18, 0.7);
     --text-color: #e0e0e0;
-    --accent-color: #2196F3;
-    --danger-color: #F44336;
+    --accent-color: #2196f3;
+    --danger-color: #f44336;
     --item-hover-color: rgba(255, 255, 255, 0.1);
     --border-color: rgba(255, 255, 255, 0.1);
   }
@@ -279,13 +281,6 @@
     font-family: Arial, sans-serif;
     color: var(--text-color);
     position: relative; /* Added for positioning the debug button */
-  }
-
-  h1 {
-    color: var(--accent-color);
-    margin-bottom: 2rem;
-    font-weight: 300;
-    letter-spacing: 1px;
   }
 
   .controls {
@@ -366,7 +361,7 @@
   }
 
   .btn.primary:hover {
-    background-color: #1976D2;
+    background-color: #1976d2;
   }
 
   .btn.icon {
